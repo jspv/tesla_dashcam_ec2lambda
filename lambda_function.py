@@ -27,10 +27,6 @@ def lambda_to_ec2(event, context):
     #  - create a webpage with the provided message.
     #  - set to shutdown the instance in 5 minutes.
     init_script = f"""#!/bin/bash
-# yum update -y
-# yum install -y httpd.x86_64
-# systemctl start httpd.service
-# systemctl enable httpd.service
 yum install -y python3
 yum install -y python3-devel
 yum install -y gcc
