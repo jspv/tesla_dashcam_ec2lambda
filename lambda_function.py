@@ -1,6 +1,7 @@
 """ Lambda to launch ec2-instances """
 import boto3
 import latest_ami
+import base64
 from botocore.exceptions import ClientError
 
 REGION = 'us-east-1'  # region to launch instance.
@@ -12,7 +13,9 @@ INSTANCE_PROFILE_NAME = 'Teslacam_EC2_Role'
 TEST_LOC = '/SentryClips/2020-02-11_18-32-08/'
 # matching region/setup amazon linux ami, as per:
 # https://aws.amazon.com/amazon-linux-ami/
-INSTANCE_TYPE = 'c5d.large'  # instance type to launch.
+INSTANCE_TYPE = 'c5d.large'  # instance type to launch.  c5d = $0.096/hr
+Spot = True
+# Spotprice = null
 
 ec2 = boto3.client('ec2', region_name=REGION)
 
@@ -98,20 +101,42 @@ shutdown -h"""
             print(e)
             raise
 
-    instance = ec2.run_instances(
-        ImageId=AMI,
-        InstanceType=INSTANCE_TYPE,
-        MinCount=1,  # required by boto, even though it's kinda obvious.
-        MaxCount=1,
-        # make shutdown in script terminate ec2
-        InstanceInitiatedShutdownBehavior='terminate',
-        KeyName=KEYPAIR,
-        SecurityGroupIds=[security_group_id],
-        IamInstanceProfile={
-            'Name': INSTANCE_PROFILE_NAME
-        },
-        UserData=init_script  # file to run on instance init.
-    )
+    if Spot is True:
+        instance = ec2.request_spot_instances(
+            InstanceCount = 1,
+            LaunchSpecification={
+                'ImageId': AMI,
+                'InstanceType': INSTANCE_TYPE,
+                # make shutdown in script terminate ec2
+                # 'InstanceInitiatedShutdownBehavior': 'terminate',
+                'KeyName': KEYPAIR,
+                'SecurityGroupIds': [security_group_id],
+                'IamInstanceProfile': {
+                    'Name': INSTANCE_PROFILE_NAME
+                },
+                'UserData': str(base64.b64encode(init_script.encode('utf-8')), "utf-8"),  # file to run on instance init.
+            },
+            # Minimum can have is 60m block.
+            # BlockDurationMinutes = 60,
+        )
+        print(instance)
+        print("Spot instance started.  Price: {}".format(
+            instance['SpotInstanceRequests'][0]['ActualBlockHourlyPrice']))
+    else:
+        instance = ec2.run_instances(
+            ImageId=AMI,
+            InstanceType=INSTANCE_TYPE,
+            MinCount=1,  # required by boto, even though it's kinda obvious.
+            MaxCount=1,
+            # make shutdown in script terminate ec2
+            InstanceInitiatedShutdownBehavior='terminate',
+            KeyName=KEYPAIR,
+            SecurityGroupIds=[security_group_id],
+            IamInstanceProfile={
+                'Name': INSTANCE_PROFILE_NAME
+            },
+            UserData=init_script  # file to run on instance init.
+        )
 
     print("New instance created.")
     instance_id = instance['Instances'][0]['InstanceId']
