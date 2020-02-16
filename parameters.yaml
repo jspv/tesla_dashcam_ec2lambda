@@ -1,0 +1,61 @@
+region: us-east-1
+instance_type: c5d.large
+# specify 'latest_ami' to pull the latest
+ami: latest_ami
+spot: True
+# spotprice not implemented yet
+spotprice: 0
+
+# keypair is optional, leave nullto not specify a keypair
+# keypair: AlehouseWebAndMailServerKeypair
+
+# stackname - if null, then security_group and instance_profile_name
+# are used directly.  If stackname is set, then instance_profile_name and
+# security_group are used as keys to the stack to get the matching output
+stackname: TeslaCamEC2
+security_group: TeslaCamEC2SecurityGroup
+instance_profile_name: TeslaCamEC2InstanceProfile
+
+## event_filter.py ##
+# event_filter.py is a local python file with a function called filter() defined.
+# filter() will be passed the 'event' from the lambda invocation.
+# filter() should return either:
+#   None: this will result in the lambda exiting immedately
+#   A list of returned values to be used in the
+#   user_data.  These can be be referenced via {0}, {1} etc.
+
+user_data: |
+  #!/bin/bash
+  yum install -y python3
+  yum install -y python3-devel
+  yum install -y gcc
+  pip3 install tesla_dashcam
+  yum install -y gnu-free-sans-fonts.noarch
+
+  # Load ffmpeg
+  mkdir /usr/local/bin/ffmpeg.static
+  cd /usr/local/bin/ffmpeg.static
+  wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz
+  tar xvf ffmpeg-release-i686-static.tar.xz
+  rm -rf ffmpeg-release-i686-static.tar.xz
+  ln -s /usr/local/bin/ffmpeg.static/ffmpeg-*/ffmpeg /usr/local/bin/ffmpeg
+
+  # Mount the instance store
+  mkfs -t xfs /dev/nvme1n1
+  mkdir /data
+  mount /dev/nvme1n1 /data
+
+  # Copy files to /data
+  aws s3 sync s3://{filter_s3bucket}{0} /data
+  cd /data
+  mkdir output
+  tesla_dashcam . --font /usr/share/fonts/gnu-free/FreeSans.ttf --output /data/output/
+  aws s3 cp /data/output/* s3://{filter_s3bucket}{0}
+
+  # shutdown -h +5
+  shutdown -h
+
+# Place variables to be used in the event_filter here.
+filter_s3bucket: org.trashcan.teslacam
+# If testfolder is not null, it will override any passed in folder from event
+filter_testfolder: /SentryClips/2020-02-11_18-32-08/

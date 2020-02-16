@@ -53,7 +53,8 @@ def _newest_image(list_of_images):
             latest = image
             continue
 
-        if parser.parse(image['CreationDate']) > parser.parse(latest['CreationDate']):
+        if (parser.parse(image['CreationDate']) >
+                parser.parse(latest['CreationDate'])):
             latest = image
 
     return latest
