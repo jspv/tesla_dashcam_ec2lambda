@@ -12,11 +12,16 @@ def filter(event):
         - None to abort ec2 execution
         - list containing True and an optional list of values to
           pass to the user_data '''
+    print(event)
     # if testfolder exists, use it.
     if 'filter_testfolder' in config.keys():
         folder = config['filter_testfolder']
-    else:
-        # Assign folder from event here.
-        pass
+        return[folder]
 
-    return [folder]
+    subject = event['Records'][0]['Sns']['Subject']
+    message = event['Records'][0]['Sns']['Message']
+    if subject == 'TeslaCam Upload':
+        return([message])
+    else:
+        print("'Subject did not match 'TeslaCam Upload'")
+        return(None)

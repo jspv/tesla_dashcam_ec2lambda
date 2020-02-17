@@ -7,6 +7,7 @@ import sys
 import os
 import subprocess
 import shutil
+import argparse
 from distutils.util import strtobool
 
 # Load the configuraiton settings
@@ -53,6 +54,14 @@ def create_bucket(bucketname):
 
 
 def main():
+    # ensure using global config
+    global config
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--nodeploy', action='store_true',
+                        help='Skip deployment of lambda code', required=False)
+    args = parser.parse_args()
+
     # if lambda_bucket is set, ensure it exists
     if 'lambda_bucket' in config.keys():
         if not bucket_exists_in_region(config['lambda_bucket']):
@@ -63,24 +72,25 @@ def main():
             else:
                 sys.exit("exiting")
 
-    # Prepare the deployment area
-    # Copy over the lambda files
-    if os.path.isdir(config['deploy_dir']):
-        shutil.rmtree(config['deploy_dir'])
-    shutil.copytree(config['code_dir'], config['deploy_dir'])
+    if not args.nodeploy:
+        # Prepare the deployment area
+        # Copy over the lambda files
+        if os.path.isdir(config['deploy_dir']):
+            shutil.rmtree(config['deploy_dir'])
+        shutil.copytree(config['code_dir'], config['deploy_dir'])
 
-    # Pull in the requirements
-    subprocess.check_call([sys.executable, "-m", "pip", "install",
-                           "-r", os.path.join(config['deploy_dir'],
-                                              config['deploy_recs']), "-t",
-                           config['deploy_dir']])
+        # Pull in the requirements
+        subprocess.check_call([sys.executable, "-m", "pip", "install",
+                               "-r", os.path.join(config['deploy_dir'],
+                                                  config['deploy_recs']), "-t",
+                               config['deploy_dir']])
 
-    # Set permissions
-    for root, dirs, files in os.walk(config['deploy_dir']):
-        for d in dirs:
-            os.chmod(os.path.join(root, d), 0o0755)
-        for f in files:
-            os.chmod(os.path.join(root, f), 0o0644)
+        # Set permissions
+        for root, dirs, files in os.walk(config['deploy_dir']):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o0755)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o0644)
 
     # Run 'cloudformation package' on the cloudformaiton template.  This
     # Will package up the lambda files and upload them and create an
@@ -90,7 +100,7 @@ def main():
            f"--s3-bucket {config['lambda_bucket']} "
            f"--s3-prefix {config['lambda_prefix']} "
            f"--output-template-file {config['cloudformation_output']}"
-           " --force-upload"
+           # " --force-upload"
            )
     print(cmd)
     package_cmd = subprocess.run(cmd.split(" "))
