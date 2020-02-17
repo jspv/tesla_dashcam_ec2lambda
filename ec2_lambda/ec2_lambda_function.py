@@ -69,16 +69,18 @@ def lambda_to_ec2(event, context):
 
         spotrequest = ec2.request_spot_instances(
             InstanceCount=1,
-            LaunchSpecification=LaunchSpecification
-        )
+            LaunchSpecification=LaunchSpecification)
+
         spotinst_id = (spotrequest['SpotInstanceRequests'][0]
                        ['SpotInstanceRequestId'])
         print("ec2_lambda spotinst {} requested at {}".format(
             spotinst_id, datetime.datetime.now()))
         waiter = ec2.get_waiter('spot_instance_request_fulfilled')
         waiter.wait(SpotInstanceRequestIds=[spotinst_id])
+
         print("ec2_lambda spotinst {} fulfilled at {}".format(
             spotinst_id, datetime.datetime.now()))
+
         instance_id = (ec2.describe_spot_instance_requests(
             SpotInstanceRequestIds=[spotinst_id])['SpotInstanceRequests'][0]
             ['InstanceId'])
@@ -86,10 +88,12 @@ def lambda_to_ec2(event, context):
             instance_id, datetime.datetime.now()))
         instance_resource = ec2_resource.Instance(id=instance_id)
         instance_resource.wait_until_running()
+
         start = datetime.datetime.now()
         print("ec2_lambda instance {} noted as running at {}".format(
             instance_id, start))
         instance_resource.wait_until_terminated()
+
         end = datetime.datetime.now()
         print(("ec2_lambda instance {} noted as terminated at {} "
                "ran for {} seconds").format(instance_id, end,
