@@ -107,7 +107,7 @@ def main():
 
     # Now Deploy the Stack
     cmd = ("aws cloudformation deploy "
-           "--capabilities CAPABILITY_IAM "
+           "--capabilities CAPABILITY_NAMED_IAM "
            f"--template-file {config['cloudformation_output']} "
            f"--stack-name {config['stackname']}")
     print(cmd)

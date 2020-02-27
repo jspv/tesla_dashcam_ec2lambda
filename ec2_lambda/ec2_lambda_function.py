@@ -1,7 +1,6 @@
 """ Lambda to launch ec2-instances """
 
 from botocore.exceptions import WaiterError
-from botocore.exceptions import ClientError
 # Local files
 from config import config
 import custom

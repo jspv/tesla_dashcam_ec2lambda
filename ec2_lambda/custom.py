@@ -8,6 +8,8 @@ import http.client
 import urllib
 # for identifying video file created
 import re
+from botocore.exceptions import ClientError
+
 
 # Force a few defaults in case the values aren't specified
 for value in ['custom_pushover_token', 'custom_pushover_key']:
@@ -32,7 +34,7 @@ for value in ['custom_pushover_token', 'custom_pushover_key']:
 
 def _check_prefix_in_bucket(prefix, bucketname):
     ''' verify that the prefix esists in a bucket '''
-    s3 = boto3.resource('s3')
+    s3 = boto3.resource('s3', region_name=config['region'])
     bucket = s3.Bucket(bucketname)
     objs = list(bucket.objects.filter(Prefix=prefix))
     if len(objs) > 0:
@@ -47,15 +49,22 @@ def _check_prefix_in_bucket(prefix, bucketname):
 
 
 # Send a message ot pushover
-def _send_pushover(message):
+def _send_pushover(message, title=None, url=None, url_title=None):
     if config['custom_pushover_token'] and config['custom_pushover_key']:
+        postvalues = {
+            "token": config['custom_pushover_token'],
+            "user": config['custom_pushover_key'],
+            "message": message}
+        if title:
+            postvalues['title'] = title
+        if url and url_title:
+            postvalues['url'] = url
+            postvalues['url_title'] = url_title
+        print(postvalues)
         conn = http.client.HTTPSConnection("api.pushover.net:443")
         conn.request("POST", "/1/messages.json",
-                     urllib.parse.urlencode({
-                         "token": config['custom_pushover_token'],
-                         "user": config['custom_pushover_key'],
-                         "message": message
-                     }), {"Content-type": "application/x-www-form-urlencoded"})
+                     urllib.parse.urlencode(postvalues),
+                     {"Content-type": "application/x-www-form-urlencoded"})
         return(conn.getresponse())
 
 
@@ -68,9 +77,26 @@ def _create_presigned_url(bucket_name, object_name, expiration=604800):
         maximum is 604800
     :return: Presigned URL as string. If error, returns None.
     """
+    # If stackname is set, get ecurity_group and instance_profile from stack
+    # outputs
+    if config['stackname'] is not None:
+        stack = boto3.client('cloudformation')
+        response = stack.describe_stacks(StackName=config['stackname'])
+        for output in response['Stacks'][0]['Outputs']:
+            if output['OutputKey'] == config['custom_s3signer_access']:
+                config['s3signer_access'] = output['OutputValue']
+            if output['OutputKey'] == config['custom_s3signer_secret']:
+                config['s3signer_secret'] = output['OutputValue']
+    else:
+        config['s3signer_access'] = config['custom_s3signer_access']
+        config['s3signer_key'] = config['custom_s3signer_key']
 
-    # Generate a presigned URL for the S3 object
-    s3_client = boto3.client('s3')
+    # Generate a presigned URL for the S3 object.  Use the passed in IAM
+    # credentials to sign the URLs, these creds will outlast the assumed role
+    # creds of the lambda
+    s3_client = boto3.client('s3', region_name=config['region'],
+                             aws_access_key_id=config['s3signer_access'],
+                             aws_secret_access_key=config['s3signer_secret'])
     try:
         response = s3_client.generate_presigned_url(
             'get_object',
@@ -112,6 +138,8 @@ def filter(event):
 
 def pre_process(eventdata):
     '''Required pre_process() function for custom actions pre-launch'''
+    # post_process(eventdata, None)
+    # exit()
     pass
 
 
@@ -138,6 +166,7 @@ def post_process(eventdata, instance):
             break
     if match is None:
         return
-    _send_pushover("Processing of {} completed.  View video here: {}".format(
-        *eventdata, _create_presigned_url(config['custom_s3bucket'],
-                                          match.group())))
+    _send_pushover("Processing of {} completed.".format(*eventdata),
+                   url_title="View video here",
+                   url=_create_presigned_url(config['custom_s3bucket'],
+                                             match.group()))
