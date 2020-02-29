@@ -4,11 +4,13 @@ from config import config
 import yaml
 import boto3
 # For pushover
-import http.client
-import urllib
+import pushover
+import os
 # for identifying video file created
 import re
 from botocore.exceptions import ClientError
+
+import time
 
 
 # Force a few defaults in case the values aren't specified
@@ -52,20 +54,13 @@ def _check_prefix_in_bucket(prefix, bucketname):
 def _send_pushover(message, title=None, url=None, url_title=None):
     if config['custom_pushover_token'] and config['custom_pushover_key']:
         postvalues = {
-            "token": config['custom_pushover_token'],
-            "user": config['custom_pushover_key'],
-            "message": message}
-        if title:
-            postvalues['title'] = title
-        if url and url_title:
-            postvalues['url'] = url
-            postvalues['url_title'] = url_title
-        print(postvalues)
-        conn = http.client.HTTPSConnection("api.pushover.net:443")
-        conn.request("POST", "/1/messages.json",
-                     urllib.parse.urlencode(postvalues),
-                     {"Content-type": "application/x-www-form-urlencoded"})
-        return(conn.getresponse())
+            'title': title,
+            'url': url,
+            'url_title': url_title}
+
+    client = pushover.Client(config['custom_pushover_key'],
+                             api_token=config['custom_pushover_token'])
+    client.send_message(message, **postvalues)
 
 
 def _create_presigned_url(bucket_name, object_name, expiration=604800):
@@ -75,28 +70,19 @@ def _create_presigned_url(bucket_name, object_name, expiration=604800):
     :param object_name: string
     :param expiration: Time in seconds for the presigned URL to remain valid
         maximum is 604800
+
+    :environment variable CUSTOM_S3_SIGNER_KEY: string
+    :environment variable CUSTOM_S3_SIGNER_SECRET: string
     :return: Presigned URL as string. If error, returns None.
     """
-    # If stackname is set, get ecurity_group and instance_profile from stack
-    # outputs
-    if config['stackname'] is not None:
-        stack = boto3.client('cloudformation')
-        response = stack.describe_stacks(StackName=config['stackname'])
-        for output in response['Stacks'][0]['Outputs']:
-            if output['OutputKey'] == config['custom_s3signer_access']:
-                config['s3signer_access'] = output['OutputValue']
-            if output['OutputKey'] == config['custom_s3signer_secret']:
-                config['s3signer_secret'] = output['OutputValue']
-    else:
-        config['s3signer_access'] = config['custom_s3signer_access']
-        config['s3signer_key'] = config['custom_s3signer_key']
+    # Putting in a dict for formatting purpopses
+    params = {
+        'region_name': config['region'],
+        'aws_access_key_id': os.environ.get('CUSTOM_S3_SIGNER_KEY'),
+        'aws_secret_access_key': os.environ.get('CUSTOM_S3_SIGNER_SECRET')
+    }
 
-    # Generate a presigned URL for the S3 object.  Use the passed in IAM
-    # credentials to sign the URLs, these creds will outlast the assumed role
-    # creds of the lambda
-    s3_client = boto3.client('s3', region_name=config['region'],
-                             aws_access_key_id=config['s3signer_access'],
-                             aws_secret_access_key=config['s3signer_secret'])
+    s3_client = boto3.client('s3', **params)
     try:
         response = s3_client.generate_presigned_url(
             'get_object',
@@ -108,6 +94,7 @@ def _create_presigned_url(bucket_name, object_name, expiration=604800):
         return None
 
     # The response contains the presigned URL
+    print(response)
     return response
 
 
@@ -140,6 +127,8 @@ def pre_process(eventdata):
     '''Required pre_process() function for custom actions pre-launch'''
     # post_process(eventdata, None)
     # exit()
+    post_process(eventdata, 'foo')
+    exit()
     pass
 
 
