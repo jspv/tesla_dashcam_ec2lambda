@@ -127,8 +127,6 @@ def pre_process(eventdata):
     '''Required pre_process() function for custom actions pre-launch'''
     # post_process(eventdata, None)
     # exit()
-    post_process(eventdata, 'foo')
-    exit()
     pass
 
 
