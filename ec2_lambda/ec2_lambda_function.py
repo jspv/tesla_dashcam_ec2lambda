@@ -52,7 +52,7 @@ def lambda_to_ec2(event, context):
 
     print(init_script)
 
-    # If stackname is set, get ecurity_group and instance_profile from stack
+    # If stackname is set, get security_group and instance_profile from stack
     # outputs
     if config['stackname'] is not None:
         stack = boto3.client('cloudformation')

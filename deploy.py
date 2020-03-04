@@ -62,6 +62,17 @@ def main():
                         help='Skip deployment of lambda code', required=False)
     args = parser.parse_args()
 
+    # Validate the cloudformation template
+    cmd = ("aws cloudformation validate-template "
+           f"--template-body file://{config['cloudformation_template']} "
+           )
+    print(cmd)
+    try:
+        validate_cmd = subprocess.check_call(cmd.split(" "))
+    except subprocess.CalledProcessError:
+        print('Cloudformaiton template validation failed')
+        exit()
+
     # if lambda_bucket is set, ensure it exists
     if 'lambda_bucket' in config.keys():
         if not bucket_exists_in_region(config['lambda_bucket']):

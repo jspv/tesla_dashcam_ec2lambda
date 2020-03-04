@@ -47,9 +47,6 @@ def _check_prefix_in_bucket(prefix, bucketname):
         return(False)
 
 
-'''Required filter() function that evaluates the lambda event'''
-
-
 # Send a message ot pushover
 def _send_pushover(message, title=None, url=None, url_title=None):
     if config['custom_pushover_token'] and config['custom_pushover_key']:
@@ -99,6 +96,7 @@ def _create_presigned_url(bucket_name, object_name, expiration=604800):
 
 
 def filter(event):
+    '''Required filter() function that evaluates the lambda event'''
     ''' evaluate the lambda event data and return:
         - None to abort ec2 execution
         - list containing True and an optional list of values to
