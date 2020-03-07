@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Cloudformaiton to:
+  1) Create Security Group for the TeslaCam EC2s
+  2) Reference or create the IAM Role, Instance Role and Policy for the EC2s
+  4) Create the lambda subscribing to the queue
+  5) Create SNS topic that triggers the lambda
+
+Parameters:
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2
+      instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+
+Resources:
+  #1 Security Group for the Deployed EC2s
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access from the Internet
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp:
+          Ref: SSHLocation
+
+  #2 IAM Role and Policy for the EC2s
+  # Customise the referenced policy as appropriae for the workload
+  # it is towards the bottom of this template
+  EC2IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+      - !Ref CustomEC2AccessPolicy
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+      - !Ref EC2IAMRole
+
+  #3 Create the lambda with its assoicated role
+  EC2LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      # The following gives rights to create cloudwatch logs
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref CustomLambdaPolicy
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      # Permissions for lambda to be able to create ec2 instances
+      Policies:
+      - PolicyName: EC2_lambda_Access_Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:DescribeImages
+            - ec2:DescribeInstances
+            - ec2:RequestSpotInstances
+            - ec2:RunInstances
+            - ec2:ReportInstanceStatus
+            - ec2:DescribeSpotInstanceRequests
+            - iam:PassRole
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - cloudformation:DescribeStacks
+            Resource: !Ref AWS::StackId
+
+  # Timeout is set for 15m (900s)
+  EC2Lambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: ec2_lambda_function.lambda_to_ec2
+      Runtime: python3.7
+      Timeout: 900
+      Role: !GetAtt EC2LambdaRole.Arn
+      Code: deploy/
+      ## CUSTOM Environment
+      Environment:
+        Variables:
+          CUSTOM_S3_SIGNER_KEY: !Ref TeslaCamUserAccessKey
+          CUSTOM_S3_SIGNER_SECRET: !GetAtt TeslaCamUserAccessKey.SecretAccessKey
+
+  # Create SNS Topic Trigger
+  # CUSTOM - set Topics names to a meaningful value
+  EC2LambdaSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: Notify_TeslaCam_Folder_Upload
+      DisplayName: Notify_TeslaCam_Folder_Upload
+      Subscription:
+        - Protocol: lambda
+          Endpoint: !GetAtt EC2Lambda.Arn
+      # KmsMasterKeyId: String
+      # Tags:
+      #   - Tag
+
+  # Give SNS Permission to call the lambda
+  EC2LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref EC2Lambda
+      Principal: sns.amazonaws.com
+
+  # Create managed policy to allow publising to the topic
+  EC2LambdaSNSPublisher:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+            - sns:Publish
+            Resource:
+              !Ref EC2LambdaSNSTopic
+
+### CUSTOM ####  Items below are for custom rights and such specific
+# to the lambda and ec2 workload
+
+  # Custom rights for the 3c2 - Add any rights the EC2 needs to perform its workload
+  CustomEC2AccessPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+        # PolicyName: Teslacam_s3_Access_Policy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:ListBucket
+            - s3:GetBucketLocation
+            Resource:
+            - arn:aws:s3:::YOUR_BUCKET_HERE
+          - Effect: Allow
+            Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:DeleteObject
+            - s3:DeleteObjectVersion
+            Resource:
+            - arn:aws:s3:::YOUR_BUCKET_HERE
+            - arn:aws:s3:::YOUR_BUCKET_HERE/*
+
+  # Custom rights for the lambda, the necessary ec2 launching rights
+  # are granted above as part of the role.
+  CustomLambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      # PolicyName: TeslaCam_lambda_policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:ListBucket
+          - s3:GetBucketLocation
+          Resource:
+          - arn:aws:s3:::YOUR_BUCKET_HERE
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          - s3:GetObjectVersion
+          Resource:
+          - arn:aws:s3:::YOUR_BUCKET_HERE
+          - arn:aws:s3:::YOUR_BUCKET_HERE/*
+
+  # An IAM user needed to create short signed s3 URLs, if they are not signed
+  # directly by an IAM user, the URL gets really long and pushover will not
+  # accept it.  Also ,the same user is allowed to publish to SNS
+
+  # create a policy to give the IAM user the rights to access the bucket
+  # objects in order to sign the S3 URL requests
+  TeslaCamUserPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: TeslaCam_User_Access_Policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:GetObject
+          Resource:
+          - arn:aws:s3:::YOUR_BUCKET_HERE/*
+      Users:
+        - !Ref TeslaCamIAMUser
+
+  # Create the user and also give it the same rights as the EC2 () and the
+  # rights to publish to the topic, it only needs the GetObject permission
+  # to the bucket to sign the S3 URLs but the other rights the EC2 has will
+  # also allow it to uplodad files to the bucket.  This saves me from needing
+  # to create a second user as an 'uploader' in addition to the 'signer'
+  TeslaCamIAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: TeslaCamUser
+      ManagedPolicyArns:
+      - !Ref EC2LambdaSNSPublisher
+      - !Ref CustomEC2AccessPolicy
+
+  TeslaCamUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: TeslaCamUser
+
+Outputs:
+  # Instance Profile and Security Group needs to match those in the
+  # Lambda configurations
+  TeslaCamEC2InstanceProfile:
+    Value: !Ref EC2InstanceProfile
+  TeslaCamEC2SecurityGroup:
+    Value: !Ref EC2SecurityGroup
+  TeslaCamSNSTopic:
+    Value: !Ref EC2LambdaSNSTopic
+  TeslaCamUserAccessKey:
+    Value: !Ref TeslaCamUserAccessKey
+  TeslaCamUserAccessSecret:
+    Value: !GetAtt TeslaCamUserAccessKey.SecretAccessKey

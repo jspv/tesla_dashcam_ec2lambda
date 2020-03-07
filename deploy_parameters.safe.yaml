@@ -1,0 +1,9 @@
+stackname: YOUR_STACKNAME
+region: YOUR_REGION
+cloudformation_template: tesla_dashcam_cf_template.yaml
+cloudformation_output: tesla_dashcam_cf.yaml
+lambda_bucket: YOUR_LAMBDA_BUCKET
+lambda_prefix: teslacam_ec2_lambda
+code_dir: ./ec2_lambda
+deploy_dir: ./deploy
+deploy_recs: awsrequirements.txt

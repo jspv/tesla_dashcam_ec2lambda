@@ -10,7 +10,31 @@ import shutil
 import argparse
 from distutils.util import strtobool
 
-# Load the configuraiton settings
+
+def parse_and_replace(instring):
+    """ Parse the input string for tokens, run replacers as needed.  """
+    # Replace the token and command with the command return
+    instring = re.sub(r"!MyCmd\((.+)\)",
+                      mycmd_replace,
+                      instring)
+    return instring
+
+
+# Load and process customizations
+customizations = yaml.safe_load((open('customizations.yaml')))
+for safefilename in customizations:
+    safefile = open(safefilename, 'r')
+    new = safefile.read()
+    for replacement in customizations[safefilename].items():
+        new = new.replace(*replacement)
+    newfilename = safefilename.replace('.safe', '')
+    newfile = open(newfilename, 'w')
+    newfile.write(new)
+    safefile.close()
+    newfile.close()
+exit()
+
+# Load the configuration settings
 config = yaml.safe_load(open('deploy_parameters.yaml'))
 
 
