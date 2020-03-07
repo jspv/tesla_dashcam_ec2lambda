@@ -10,7 +10,7 @@ The created AWS resources will all be in a single cloudformaiton stack, the stac
 
 ## Getting Started
 
-You will need a process for getting Tesla Sentry-mode files to an AWS S3 bucket and a way to send an SNS message to trigger the lambda when the files have been uploaded.  I use a slight modification of the marcone build of [teslausb](https://github.com/marcone/teslausb) that sends the SNS message after each folder is uploaded.  The modification can be found at https://github.com/jspv/teslausb
+You will need a process for getting Tesla Sentry-mode files to an AWS S3 bucket and a way to send an SNS message to trigger the lambda when the files have been uploaded.  I use a slight modification of the marcone build of [teslausb](https://github.com/marcone/teslausb) that sends the SNS message after each folder is uploaded.  The modification can be found [here](https://github.com/jspv/teslausb/tree/per-event-sns).
 
 To receive push notifications, take a look at [Pushover](https://pushover.net) - this project currelty only supports Pushover messages.
 
@@ -65,4 +65,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ## Acknowledgments
 
 * [ehendrix23](https://github.com/ehendrix23) for  tesla_dashcam
-* [cimryan](https://github.com/cimryan) and [marcone](https://github.com/marcone) for the creation and maintenance of teslausb 
+* [cimryan](https://github.com/cimryan) and [marcone](https://github.com/marcone) for the creation and maintenance of teslausb
