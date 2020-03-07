@@ -1,0 +1,10 @@
+# Add your customizations and save this file as customizations.yaml
+ec2_lambda/parameters.safe.yaml:
+  YOUR_KEYPAIR_HERE:
+  YOUR_PUSHOVER_TOKEN_HERE:
+  YOUR_PUSHOVER_KEY_HERE:
+deploy_parameters.safe.yaml:
+  # Bucket where you wan the lambda to be stored
+  YOUR_LAMBDA_BUCKET:
+  YOUR_STACKNAME: TeslaCamEC2
+  YOUR_REGION: us-east-1
