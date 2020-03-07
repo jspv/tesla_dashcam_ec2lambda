@@ -1,4 +1,4 @@
-region: us-east-1
+region: YOUR_REGION
 instance_type: c5d.2xlarge
 # specify 'latest_ami' to pull the latest
 ami: latest_ami
@@ -12,7 +12,7 @@ keypair: YOUR_KEYPAIR_HERE
 # stackname - if null, then security_group and instance_profile_name
 # are used directly.  If stackname is set, then instance_profile_name and
 # security_group are used as keys to the stack to get the matching output
-stackname: TeslaCamEC2
+stackname: YOUR_STACKNAME
 security_group: TeslaCamEC2SecurityGroup
 instance_profile_name: TeslaCamEC2InstanceProfile
 
