@@ -23,13 +23,13 @@ In order to receive push notifications with a link to the completed file, you wi
 
 ### Installing
 
-After cloning the repository, edit the customizations.yaml.template and add the your account-specific information and rename the file to **customizations.yaml**.
+After cloning the repository, edit the private.yaml.template and add the your account-specific information and rename the file to **private.yaml**.
 
-#### customizations.yaml
+#### private.yaml
 
-This file is used to add your customizations into the configuration file and cloudformation templates.  This file is used by the deploy.py convenience script which will make the substitutions listed in the customizations.yaml file to the  templates *(templates contain .safe in the filename)* and create the actual templates *(with .safe removed)*
+This file is used to add your customizations into the configuration file and cloudformation templates.  This file is used by the deploy.py convenience script which will make the substitutions listed in the private.yaml file to the  templates *(templates contain .safe in the filename)* and create the actual templates *(with .safe removed)*
 
-The format of customizations.yam is as follows:
+The format of private.yaml is as follows:
 
 ```
 path/filename1:
@@ -47,7 +47,7 @@ This a convenience script that performs that:
 1. performs the customizations mentioned above and creates the necessary files
 2. Packages up the lambda and needed python dependencies into a ./deploy directory
 3. Validates the cloudformaiton template
-4. runs ```cloudfomrmation package``` to pack up the lambda and upload it to the s3 bucket specified in customizations.yaml
+4. runs ```cloudfomrmation package``` to pack up the lambda and upload it to the s3 bucket specified in private.yaml
 5. runs ```cloudformation deploy``` to deploy the cloudformation
 
 
