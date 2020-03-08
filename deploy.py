@@ -12,11 +12,11 @@ from distutils.util import strtobool
 
 
 # Load and process customizations
-customizations = yaml.safe_load((open('customizations.yaml')))
-for safefilename in customizations:
+private = yaml.safe_load((open('private.yaml')))
+for safefilename in private:
     safefile = open(safefilename, 'r')
     new = safefile.read()
-    for replacement in customizations[safefilename].items():
+    for replacement in private[safefilename].items():
         new = new.replace(*replacement)
     newfilename = safefilename.replace('.safe', '')
     newfile = open(newfilename, 'w')

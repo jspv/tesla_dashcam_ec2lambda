@@ -5,8 +5,11 @@ ec2_lambda/parameters.safe.yaml:
   YOUR_KEYPAIR_HERE:
   YOUR_PUSHOVER_TOKEN_HERE:
   YOUR_PUSHOVER_KEY_HERE:
+  YOUR_BUCKET_HERE:
 deploy_parameters.safe.yaml:
   # Bucket where you want the lambda to be stored
   YOUR_LAMBDA_BUCKET:
   YOUR_STACKNAME: TeslaCamEC2
   YOUR_REGION: us-east-1
+tesla_dashcam_cf_template.safe.yaml:
+  YOUR_BUCKET_HERE: 
